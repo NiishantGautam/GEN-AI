@@ -1,0 +1,14 @@
+.cursor/
+.obsidian/
+.idea/
+
+
+.venv/
+
+venv/
+
+env/
+
+.env/
+
+virtualenv/
