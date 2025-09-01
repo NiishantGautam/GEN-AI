@@ -44,8 +44,9 @@ We need to setup our environment for that:
 uv init
 uv venv
 source .venv/bin/activate # Activates the virtual env
-
-uv add openai # Adds tje fastapi
+which python # To check the virutal env python is being used.
+uv add openai
+uv add python-dotenv
 ```
 Make sure we add a .gitignore and add that in the .gitignore file
 ```bash
@@ -54,11 +55,63 @@ Make sure we add a .gitignore and add that in the .gitignore file
 
 venv/
 
-env/
+```
+After we have our dataset, we can load and read it.
 
-.env/
 
-virtualenv/
+>Python Refresher:
+	A safe and clean way to work with files in Python is to use the with statement, as it will automatically closes the file when we are done. f is a variable that refers to the opened file.
+
+- `csv.DictReader(f)` reads each row as a dictionary, with column names as keys (like `{"question": ..., "answer": ...}`).
+- Wrapping it with `list(...)` loads all rows into a list, so you can easily loop through or access them.
+
+This makes it simple to work with question-answer pairs by name, not just by position!
+```python
+import csv
+
+with open("triviaqa.csv") as f:
+    qa_pairs = list(csv.DictReader(f))
 ```
 
+
+
+#### Normalized Match Evaluation
+
+To evaluate the performance of an LLM, we have Normalized match. <mark style="background: #BBFABBA6;">This involves comparing the model's response to the correct answer by normalizing both texts. Normalization helps in removing any discrepancies due to case sensitivity or punctuation.</mark>
+
+Normalization strips out spaces, punctuation, and makes everything lowercase!
+
+Normalizing text helps ensure fair comparison by:
+
+- Before: `"Paris!"` → After: `"paris"`
+- Before: `" 1912 "` → After: `"1912"`
+- Before: `"New-York City."` → After: `"newyorkcity"`
+
+```python
+def normalize(text):
+ return re.sub(r'[^a-z0-9]', '', text.lower())
+```
+
+```python
+import re
+from openai import OpenAI
+
+# Initialize the OpenAI client
+client = OpenAI()
+
+def normalize(text):
+    return re.sub(r'[^a-z0-9]', '', text.lower())
+
+correct = 0
+for q in qa_pairs:
+    prompt = f"Answer the following question with a short and direct fact:\n\n{q['question']}"
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    ).choices[0].message.content.strip()
+
+    if normalize(q['answer']) == normalize(response):
+        correct += 1
+```
+Here, `normalize` function removes all non-alphanumeric characters and converts the text to lowercase. This ensures that the comparison between the model's response and the correct answer is fair and consistent. We then iterate over each question-answer pair, generate a response using the `openai` library, and compare the normalized texts.
 
